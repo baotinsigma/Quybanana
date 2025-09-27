@@ -1,0 +1,29 @@
+-- BlackoutServer.lua (ServerScriptService)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remote = ReplicatedStorage:WaitForChild("BlackoutEvent")
+
+-- Thay vào đây UserId admin của bạn (sử dụng số)
+local adminUserIds = {
+    [12345678] = true, -- <- thay bằng UserId của bạn
+}
+
+local function onPlayerAdded(player)
+    player.Chatted:Connect(function(msg)
+        if not adminUserIds[player.UserId] then return end
+        local lower = string.lower(msg)
+        if string.sub(lower,1,9) == "!blackout" then
+            -- cú pháp: !blackout <duration> <text...>
+            local parts = {}
+            for p in string.gmatch(msg, "%S+") do table.insert(parts, p) end
+            local dur = tonumber(parts[2]) or 6
+            local text = (#parts >= 3) and table.concat(parts, " ", 3) or "Tôi bị gay"
+            remote:FireAllClients({action="on", text = text, duration = dur})
+        elseif string.sub(lower,1,10) == "!unblackout" then
+            remote:FireAllClients({action="off"})
+        end
+    end)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+for _,p in ipairs(Players:GetPlayers()) do onPlayerAdded(p) end
