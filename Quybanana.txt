@@ -1,0 +1,114 @@
+-- QuyBananaClient.lua (LocalScript)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+
+local remote = ReplicatedStorage:WaitForChild("QuyBananaRemote")
+
+-- Build simple black/white UI programmatically
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "QuyBananaGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 260, 0, 320)
+mainFrame.Position = UDim2.new(0, 20, 0.5, -160)
+mainFrame.AnchorPoint = Vector2.new(0,0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15,15,15)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+mainFrame.ClipsDescendants = true
+mainFrame.Active = true
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,36)
+title.Position = UDim2.new(0,0,0,0)
+title.BackgroundTransparency = 1
+title.Text = "quybanana hub"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextColor3 = Color3.new(1,1,1)
+title.Parent = mainFrame
+
+-- logo (black square)
+local logo = Instance.new("Frame")
+logo.Size = UDim2.new(0,36,0,36)
+logo.Position = UDim2.new(0,8,0,4)
+logo.BackgroundColor3 = Color3.fromRGB(0,0,0)
+logo.Parent = mainFrame
+
+-- fly toggle
+local function makeButton(y, text)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-16,0,36)
+    b.Position = UDim2.new(0,8,0,y)
+    b.Text = text
+    b.BackgroundColor3 = Color3.fromRGB(240,240,240)
+    b.TextColor3 = Color3.fromRGB(20,20,20)
+    b.Font = Enum.Font.Gotham
+    b.TextSize = 16
+    b.Parent = mainFrame
+    return b
+end
+
+local flyBtn = makeButton(56, "Toggle Fly")
+local invisBtn = makeButton(100, "Toggle Invisibility")
+local speedUpBtn = makeButton(144, "Speed +10")
+local speedDownBtn = makeButton(188, "Speed -10")
+local closeBtn = makeButton(232, "Close Menu")
+
+-- local state
+local isFlying = false
+local isInvisible = false
+local currentSpeed = 16
+
+flyBtn.MouseButton1Click:Connect(function()
+    isFlying = not isFlying
+    remote:FireServer("ToggleFly", isFlying)
+    flyBtn.Text = isFlying and "Disable Fly" or "Toggle Fly"
+end)
+
+invisBtn.MouseButton1Click:Connect(function()
+    isInvisible = not isInvisible
+    remote:FireServer("ToggleInvis", isInvisible)
+    invisBtn.Text = isInvisible and "Make Visible" or "Toggle Invisibility"
+end)
+
+speedUpBtn.MouseButton1Click:Connect(function()
+    currentSpeed = currentSpeed + 10
+    remote:FireServer("SetSpeed", currentSpeed)
+end)
+speedDownBtn.MouseButton1Click:Connect(function()
+    currentSpeed = math.max(0, currentSpeed - 10)
+    remote:FireServer("SetSpeed", currentSpeed)
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    screenGui.Enabled = false
+end)
+
+-- Short key to toggle UI (Right Ctrl)
+ContextActionService:BindAction("ToggleQuyMenu", function(_, state, input)
+    if state == Enum.UserInputState.Begin then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+end, false, Enum.KeyCode.RightControl)
+
+-- Client-side fly control (only adjusts velocity while server-marker exists)
+RunService.Heartbeat:Connect(function(dt)
+    local character = player.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local marker = hrp:FindFirstChild("QuyBananaFly")
+    if marker then
+        -- simple WASD + space control for flying
+        local moveVec = Vector3.new(0,0,0)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local rootCFrame = hrp.C
